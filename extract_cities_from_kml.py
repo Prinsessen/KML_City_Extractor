@@ -21,6 +21,7 @@ import xml.etree.ElementTree as ET
 from typing import List, Tuple, Optional, Dict
 
 from tqdm import tqdm
+from geopy.distance import geodesic
 
 # -------------------- KML parsing --------------------
 
@@ -157,6 +158,11 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
     rows = []
     last_key: Optional[Tuple[str, ...]] = None
     count_by_src: Dict[str, int] = {}
+    
+    # For distance tracking
+    last_lat: Optional[float] = None
+    last_lon: Optional[float] = None
+    cumulative_distance: float = 0.0
 
     # For secondary outputs
     cities_seq: List[str] = []
@@ -187,6 +193,19 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
             last_key = key
 
         count_by_src[src] = count_by_src.get(src, 0) + 1
+        
+        # Calculate distance from previous point
+        distance_km = 0.0
+        if last_lat is not None and last_lon is not None:
+            try:
+                distance_km = geodesic((last_lat, last_lon), (lat, lon)).kilometers
+                cumulative_distance += distance_km
+            except Exception:
+                distance_km = 0.0
+        
+        # Update last coordinates
+        last_lat = lat
+        last_lon = lon
 
         # Append to main rows
         rows.append({
@@ -197,6 +216,8 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
             'city': city,
             'admin': admin,
             'country': country,
+            'distance_km': round(distance_km, 3),
+            'cumulative_distance_km': round(cumulative_distance, 3),
         })
         # Track cities-only in traversal order
         cval = city or ''
@@ -207,7 +228,7 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
 
     # Write main CSV
     with open(output_csv, 'w', newline='', encoding='utf-8') as f:
-        w = csv.DictWriter(f, fieldnames=['seq','placemark','lat','lon','city','admin','country'])
+        w = csv.DictWriter(f, fieldnames=['seq','placemark','lat','lon','city','admin','country','distance_km','cumulative_distance_km'])
         w.writeheader(); w.writerows(rows)
 
     print(f'Wrote {len(rows)} rows to {output_csv}')
