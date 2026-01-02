@@ -20,6 +20,23 @@ import sys
 import xml.etree.ElementTree as ET
 from typing import List, Tuple, Optional, Dict
 
+# Fix for urllib3 v2 OpenSSL compatibility issue
+# Ensures urllib3 < 2.0 is used to avoid OpenSSL 1.1.1+ requirement
+try:
+    import urllib3
+    # Check if urllib3 v2 is installed
+    if hasattr(urllib3, '__version__'):
+        major_version = int(urllib3.__version__.split('.')[0])
+        if major_version >= 2:
+            import warnings
+            warnings.warn(
+                "urllib3 v2.x detected. This version requires OpenSSL 1.1.1+. "
+                "If you encounter SSL errors, please downgrade: pip install 'urllib3<2.0'",
+                RuntimeWarning
+            )
+except ImportError:
+    pass  # urllib3 not yet installed
+
 from tqdm import tqdm
 from geopy.distance import geodesic
 

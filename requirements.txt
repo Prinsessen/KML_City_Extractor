@@ -2,3 +2,4 @@ pandas
 tqdm
 reverse_geocoder
 geopy
+urllib3<2.0  # v2.x requires OpenSSL 1.1.1+; use v1.x for broader compatibility
