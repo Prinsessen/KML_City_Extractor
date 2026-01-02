@@ -9,7 +9,7 @@ This tool walks the KML in document order and reverse‑geocodes each vertex to 
 - **Smart filtering**: Skip consecutive duplicates while preserving round-trip sequences
 ## Install (Linux)
 ```bash
-python3 -m pip install --requrements.txt
+python3 -m pip install -r requirements.txt
 ```
 ## Install (macOS)
 ```bash
