@@ -12,12 +12,12 @@ python3 -m pip install reverse_geocoder geopy tqdm
 
 ## Offline example (nearest city; skip consecutive duplicates by city name)
 ```bash
-python extract_cities_from_kml.py   --input-kml routes.kml   --mode offline   --output cities_in_order.csv   --sample-every 1   --unique-only   --unique-on city
+python3 extract_cities_from_kml.py   --input-kml routes.kml   --mode offline   --output cities_in_order.csv   --sample-every 1   --unique-only   --unique-on city
 ```
 
 ## Online example (Nominatim; richer labels; same duplicate behavior)
 ```bash
-python extract_cities_from_kml.py   --input-kml routes.kml   --mode online   --rate 1.0   --user-agent "agesen_el_teknik_city_extractor"   --output cities_in_order.csv   --sample-every 1   --unique-only   --unique-on city
+python3 extract_cities_from_kml.py   --input-kml routes.kml   --mode online   --rate 1.0   --user-agent "agesen_el_teknik_city_extractor"   --output cities_in_order.csv   --sample-every 1   --unique-only   --unique-on city
 ```
 
 ### Notes
