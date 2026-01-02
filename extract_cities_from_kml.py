@@ -1,27 +1,25 @@
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Extract cities from a KML file (start-to-end order) — with progress bar
 
-v2.3 + distance columns
-- NEW columns in main CSV:
-  * km: distance (km) from the previous kept point (after sampling & dedupe)
-  * cum_km: cumulative distance from start (km)
-- Keeps v2.3 options:
-  * --cities-only (with --global-unique)
-  * --group-by-placemark (with --group-stats)
-  * progress bar, consecutive duplicate control (--unique-only, --unique-on),
-    sampling (--sample-every), per-Placemark cap, offline/online geocoding
+v2.3
+- NEW options:
+  * `--cities-only <path>` → write a second CSV with city names only (no lat/lon)
+  * `--global-unique` → when used with `--cities-only`, drop later repeats of the same city anywhere in the sequence
+  * `--group-by-placemark <path>` → write a per‑Placemark summary CSV
+  * `--group-stats` → when used with `--group-by-placemark`, include per‑Placemark distinct city counts
+- Keeps: progress bar, consecutive duplicate control (`--unique-only`, `--unique-on`),
+  sampling (`--sample-every`), per‑Placemark cap (`--max-per-placemark`), offline/online geocoding.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
-import math
 import xml.etree.ElementTree as ET
 from typing import List, Tuple, Optional, Dict
+
 from tqdm import tqdm
 
 # -------------------- KML parsing --------------------
@@ -41,6 +39,7 @@ def _parse_coords_string(text: str) -> List[Tuple[float, float]]:
                 pass
     return out
 
+
 def _parse_gx_coord(text: str) -> Optional[Tuple[float, float]]:
     parts = (text or '').strip().split()
     if len(parts) >= 2:
@@ -51,6 +50,7 @@ def _parse_gx_coord(text: str) -> Optional[Tuple[float, float]]:
         except Exception:
             return None
     return None
+
 
 def parse_kml_points(kml_path: str) -> List[Tuple[float, float, str]]:
     """Return a flat list of (lat, lon, source_id) following KML order.
@@ -101,6 +101,7 @@ def init_online(rate: float, user_agent: str):
     except Exception:
         return None
 
+
 def geo_offline(lat: float, lon: float) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     try:
         import reverse_geocoder as rg
@@ -108,6 +109,7 @@ def geo_offline(lat: float, lon: float) -> Tuple[Optional[str], Optional[str], O
         return res.get('name'), res.get('admin1'), res.get('cc')
     except Exception:
         return None, None, None
+
 
 def geo_online(lat: float, lon: float, reverse_func, language: str='en') -> Tuple[Optional[str], Optional[str], Optional[str]]:
     try:
@@ -122,24 +124,11 @@ def geo_online(lat: float, lon: float, reverse_func, language: str='en') -> Tupl
     except Exception:
         return None, None, None
 
-# -------------------- Distance (Haversine) ----------------------
-# WGS84 Earth radius approximation; good enough for route summaries.
-_EARTH_RADIUS_KM = 6371.0088
-
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Return great-circle distance in kilometers between two (lat, lon) points."""
-    # Convert degrees to radians
-    phi1 = math.radians(lat1); phi2 = math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
-    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
-    return _EARTH_RADIUS_KM * c
-
 # -------------------- Dedup helpers ------------------
 
 def _norm(s: Optional[str]) -> str:
     return (s or '').strip().lower()
+
 
 def _make_key(city: Optional[str], admin: Optional[str], country: Optional[str], mode: str) -> Tuple[str, ...]:
     if mode == 'city':
@@ -150,11 +139,7 @@ def _make_key(city: Optional[str], admin: Optional[str], country: Optional[str],
 
 # -------------------- Main extraction ----------------
 
-def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
-                   unique_only: bool, unique_on: str, max_per_placemark: Optional[int],
-                   language: str, rate: float, user_agent: str,
-                   cities_only: Optional[str], global_unique: bool,
-                   group_by_placemark: Optional[str], group_stats: bool) -> None:
+def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int, unique_only: bool, unique_on: str, max_per_placemark: Optional[int], language: str, rate: float, user_agent: str, cities_only: Optional[str], global_unique: bool, group_by_placemark: Optional[str], group_stats: bool) -> None:
     import csv
     from collections import Counter
 
@@ -176,12 +161,7 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
     # For secondary outputs
     cities_seq: List[str] = []
     cities_seq_norm: List[str] = []
-    placemark_cities: Dict[str, List[str]] = []
-
-    # For distance tracking on kept points
-    last_kept_lat: Optional[float] = None
-    last_kept_lon: Optional[float] = None
-    cum_km: float = 0.0
+    placemark_cities: Dict[str, List[str]] = {}
 
     # Progress bar over total points; respects sampling inside loop
     for idx, (lat, lon, src) in enumerate(tqdm(pts, desc='Geocoding', unit='pt')):
@@ -208,14 +188,6 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
 
         count_by_src[src] = count_by_src.get(src, 0) + 1
 
-        # Distance from last kept point
-        if last_kept_lat is None or last_kept_lon is None:
-            seg_km = 0.0
-        else:
-            seg_km = _haversine_km(last_kept_lat, last_kept_lon, lat, lon)
-        cum_km += seg_km
-        last_kept_lat, last_kept_lon = lat, lon
-
         # Append to main rows
         rows.append({
             'seq': len(rows),
@@ -225,11 +197,8 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
             'city': city,
             'admin': admin,
             'country': country,
-            'km': round(seg_km, 3),
-            'cum_km': round(cum_km, 3),
         })
-
-        # Track cities-only in traversal order (may include None/blank)
+        # Track cities-only in traversal order
         cval = city or ''
         cities_seq.append(cval)
         cities_seq_norm.append(_norm(cval))
@@ -238,9 +207,7 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
 
     # Write main CSV
     with open(output_csv, 'w', newline='', encoding='utf-8') as f:
-        w = csv.DictWriter(f, fieldnames=[
-            'seq','placemark','lat','lon','city','admin','country','km','cum_km'
-        ])
+        w = csv.DictWriter(f, fieldnames=['seq','placemark','lat','lon','city','admin','country'])
         w.writeheader(); w.writerows(rows)
 
     print(f'Wrote {len(rows)} rows to {output_csv}')
@@ -286,8 +253,9 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
                 'count': str(len(seq_non_empty))
             }
             if group_stats:
-                from collections import Counter
+                # counts per distinct city within this placemark
                 ctr = Counter([_norm(c) for c in seq_non_empty])
+                # Build label map with original case by first occurrence
                 label_map: Dict[str, str] = {}
                 for c in seq_non_empty:
                     n = _norm(c)
@@ -296,6 +264,7 @@ def extract_cities(kml_path: str, mode: str, output_csv: str, sample_every: int,
                 parts = [f"{label_map[n]}: {ctr[n]}" for n in ctr]
                 row['city_counts'] = ' | '.join(parts)
             gb_out.append(row)
+        # fieldnames vary if stats present
         fields = ['placemark','first_city','last_city','cities','count'] + (['city_counts'] if group_stats else [])
         with open(group_by_placemark, 'w', newline='', encoding='utf-8') as f:
             w = csv.DictWriter(f, fieldnames=fields)
