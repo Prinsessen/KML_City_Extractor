@@ -1,7 +1,10 @@
 # Extract cities from KML — progress bar + consecutive duplicate control (v2.1)
 
 This tool walks the KML in document order and reverse‑geocodes each vertex to a **city/admin/country** label. It shows a **tqdm progress bar** while processing and lets you skip **consecutive duplicates only** — so round‑trips will still list a city again when you return later.
-
+## Install (Linux)
+```bash
+python3 -m pip install --requrements
+```
 ## Install (macOS)
 ```bash
 python3 -m venv .venv
@@ -25,3 +28,8 @@ python3 extract_cities_from_kml.py   --input-kml routes.kml   --mode online   --
 - **Choose the key**: Use `--unique-on city_admin_country` if you want duplicates removed only when **all three** match.
 - Blank city names: consecutive blank results are also collapsed; once a real city appears it will be listed.
 - If `geopy` can’t init, the script falls back to offline and warns in console.
+
+- Tips
+
+Big tracks? Use --sample-every 5 (or 10) to keep it snappy while preserving order. 3
+Very long Placemarks? Add --max-per-placemark 100 so one giant segment doesn’t dominate the run
