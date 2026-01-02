@@ -1,0 +1,4 @@
+pandas
+tqdm
+reverse_geocoder
+geopy
