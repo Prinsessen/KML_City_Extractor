@@ -3,7 +3,7 @@
 This tool walks the KML in document order and reverse‑geocodes each vertex to a **city/admin/country** label. It shows a **tqdm progress bar** while processing and lets you skip **consecutive duplicates only** — so round‑trips will still list a city again when you return later.
 ## Install (Linux)
 ```bash
-python3 -m pip install --requrements
+python3 -m pip install --requrements.txt
 ```
 ## Install (macOS)
 ```bash
